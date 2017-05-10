@@ -59,12 +59,14 @@ OUTPUT_DEFAULTS = {
 
 # filter settings
 BRANCHES     = 'branches'
+LOCALS       = 'localbranches'
 TAGS         = 'tags'
 ROOTS        = 'roots'
 MERGES       = 'merges'
 BIFURCATIONS = 'bifurcations'
 FILTER_SETTINGS = [
         BRANCHES,
+        LOCALS,
         TAGS,
         ROOTS,
         MERGES,
@@ -72,6 +74,7 @@ FILTER_SETTINGS = [
         ]
 FILTER_DEFAULTS = {
         BRANCHES:     True,
+        LOCALS:       False,
         TAGS:         True,
         ROOTS:        True,
         MERGES:       False,
@@ -153,6 +156,15 @@ def create_parser():
     filter_group.add_option('-B', '--no-branches',
             action='store_true', dest='no_branches',
             help='do not show commits pointed to by branches')
+
+    # TODO implies -b
+    filter_group.add_option('-l', '--localbranches',
+            action='store_true', dest='localbranches',
+            help='show commits pointed by local branches not tracking a remote one')
+    # TODO
+    filter_group.add_option('-L', '--no-localbranches',
+            action='store_true', dest='no_localbranches',
+            help='show commits pointed to by remote branches not tracked locally')
 
     filter_group.add_option('-t', '--tags',
             action='store_true', dest='tags',
@@ -711,6 +723,7 @@ class CommitGraph(object):
 
     def filter(self,
             branches=FILTER_DEFAULTS[BRANCHES],
+            localbranches=FILTER_DEFAULTS[LOCALS],
             tags=FILTER_DEFAULTS[TAGS],
             roots=FILTER_DEFAULTS[ROOTS],
             merges=FILTER_DEFAULTS[MERGES],
@@ -749,7 +762,12 @@ class CommitGraph(object):
         """
         interesting = []
         if branches:
-            interesting.extend(self.branches.keys())
+            if localbranches:
+                def islocal(k):
+                    return any(not label.startswith('origin/') for label in self.branches[k])
+                interesting.extend(k for k in self.branches.keys() if islocal(k))
+            else:
+                interesting.extend(self.branches.keys())
         if tags:
             interesting.extend(self.tags.keys())
         if roots:
